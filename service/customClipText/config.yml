@@ -1,0 +1,5 @@
+jtype: CLIPTextEncoder
+metas:
+  py_modules:
+    - clip_text.py
+  name: text_encoder

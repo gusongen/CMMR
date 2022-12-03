@@ -1,0 +1,5 @@
+jtype: ImageLoader #和Executor的类名对应
+metas:
+  py_modules:
+    - image_loader.py
+  name: image_loader

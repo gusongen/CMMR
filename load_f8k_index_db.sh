@@ -1,0 +1,2 @@
+mv /home/gusongen/mm_search_baseline/service/workspace/indexer/0/index.db /home/gusongen/mm_search_baseline/service/workspace/indexer/0/index.db.bak
+cp /home/gusongen/mm_search_baseline/workspace/SimpleIndexer/index_f8k.db /home/gusongen/mm_search_baseline/service/workspace/indexer/0/index.db

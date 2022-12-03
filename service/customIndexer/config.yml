@@ -1,0 +1,10 @@
+jtype: SimpleIndexer
+with:
+  match_args:
+    limit: $TOP_K
+    traversal_rdarray: "c"
+metas:
+  py_modules:
+    - SimpleIndexer.py
+  workspace: workspace/
+  name: indexer
