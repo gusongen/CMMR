@@ -82,6 +82,26 @@ def test_query(indexer=None):
     print('@ db size', len(indexer.get_db()))
 
 
+def test_img_query(indexer=None):
+    tic = time.time()
+    if indexer is None:
+        indexer = SimpleIndexer()
+    # query
+    doc = DocumentArray([Document(uri='/home/gusongen/mm_search_baseline/toy-data/images/image_0021.jpg',
+                                  modality='image').load_uri_to_image_tensor()])
+
+    text_executor = CLIPImageEncoder()
+    text_executor.encode(doc, parameters={'add_dummy_unknow_prompt': True})
+    text_executor = CLIPTextEncoder()
+    text_executor.encode(doc, parameters={'add_dummy_unknow_prompt': True})
+    # with f:
+    #     resp = f.post(on='/search', inputs=docs, on_done=print)
+    resp = indexer.search(doc, parameters={'add_dummy_unknow_prompt': True})
+    print(resp)
+    print('@ total time ', time.time() - tic)
+    print('@ db size', len(indexer.get_db()))
+
+
 def clear(indexer=None):
     tic = time.time()
     if indexer is None:
@@ -147,10 +167,12 @@ def index(indexer, num_docs, request_size, data_set, device, by_flow):
 if __name__ == '__main__':
     # todo
     os.environ['JINA_DEFAULT_WORKSPACE_BASE'] = './workspace'  # the directory to store the indexed data
+    config()  # set environment first ,or jina can't load sqlite appropriate
     # clear()
-    index()
+    # index()
     # get_db_size()
     # test_query()
+    test_img_query()
     # test_query()
     # test_query()
 
