@@ -56,50 +56,24 @@ class CLIPImageEncoder(Executor):
         self.model = model
         # self.model.to(self.device).eval()
 
-    @requests
+    @requests(on=["/index",
+                  "/search"])
     def encode(self, docs: DocumentArray, parameters: dict, **kwargs):
         t1 = time.time()
         print('clip_image encode', t1)
         document_batches_generator = DocumentArray(
             filter(
-                lambda x: x is not None and x.tensor is not None, docs[parameters.get('traversal_paths', self.traversal_paths)],
+                lambda x: x is not None and x.tensor is not None and x.modality == 'image', docs[parameters.get('traversal_paths', self.traversal_paths)],
             )
         ).batch(batch_size=parameters.get('batch_size', self.batch_size))
         with torch.inference_mode():
             for batch_docs in document_batches_generator:
                 print('in for')
-                if all([d.modality == 'image' for d in batch_docs]):
-                    # a batch of  image, use batch encode
-                    # image_embedding = self.model.encode_image(self.preprocessor([Image.fromarray(d.tensor) for d in batch_docs]).unsqueeze(0).to(self.device))  # TODO make it batch
-                    images_embedding = self.model.encode_image(torch.stack([self.preprocessor(Image.fromarray(d.tensor))for d in batch_docs]
-                                                                            ).to(self.device)).cpu().numpy()  # TODO make it batch
-                    for doc, image_embedding in zip(batch_docs, images_embedding):
-                        doc.embedding = np.array(image_embedding).astype('float32')
-                else:
-                    for d in batch_docs:
-                        # if d.modality == 'image':
-                        #     image_embedding = self.model.encode_image(self.preprocessor([Image.fromarray(d.tensor) for d in batch_docs]).unsqueeze(0).to(self.device))
-                        #     d.embedding = np.array(image_embedding).astype('float32')
-                        # else:
-                        # video case
-                        if len(d.chunks) == 0:
-                            continue
-                        print('in clip image d.uri', d.uri, len(d.chunks))
-                        # tensor = self._generate_input_features(tensors_batch)
-                        tensors_batch = []
-                        for c in d.chunks:
-                            if (c.modality == 'image'):
-                                image_embedding = self.model.encode_image(self.preprocessor(Image.fromarray(c.tensor)).unsqueeze(0).to(self.device))
-                                # tensors_batch.append(image_embedding)
-                                tensors_batch.append(np.array(image_embedding).astype('float32'))
-                        embedding = tensors_batch
-                        # print(np.asarray(Image.open(d.uri)).shape)
-                        # image = self.preprocessor(Image.fromarray(np.asarray(Image.open(d.uri)))).unsqueeze(0).to(self.device)
-                        # embedding = self.model.encode_image(image)
-                        # print(embedding)
-                        # embedding = np.array(embedding).astype('float32')
-                        # print(embedding)
-                        d.embedding = embedding
+                images_embedding = self.model.encode_image(torch.stack(
+                    [self.preprocessor(Image.fromarray(d.tensor))for d in batch_docs]
+                ).to(self.device)).cpu().numpy()
+                for doc, image_embedding in zip(batch_docs, images_embedding):
+                    doc.embedding = np.array(image_embedding).astype('float32')
         t2 = time.time()
         print('clip_image encode end', t2 - t1, t2)
 

@@ -8,6 +8,8 @@ import uuid
 import pandas as pd
 from pathlib import Path
 import base64
+import numpy as np
+from PIL import Image
 # VIDEO_PATH = f"{os.getcwd()}/data"
 # # 视频存储的路径
 # if not os.path.exists(VIDEO_PATH):
@@ -40,7 +42,7 @@ if modal_select == 'Text':
     query = st.text_input(
         "Query text", placeholder="please input the query description", help='The description of your query')
 else:
-    query = st.file_uploader("Query image", help='The image of your query')
+    query = st.file_uploader("Query image", help='The image of your query', type=['png', 'jpg', 'jpeg'])
 
 
 # top k 输入框
@@ -49,16 +51,23 @@ else:
 
 
 # 与后端交互部分
-def search_clip(uid, text_prompt, topn_value):
+@st.cache
+def search_clip(uid, query, modal, topn_value):
     # video = DocumentArray([Document(uri=uri, id=str(uid) + uploaded_file.name)])
     # t1 = time.time()
     # c.post('/index', inputs=video) # 首先将上传的视频进行处理
-
-    text = DocumentArray([Document(text=text_prompt)])
+    if modal == 'Text':
+        query = DocumentArray([Document(text=query, modality='text')])
+        resp = c.post('/search', inputs=query, parameters={'relative_score': True})  # 其次根据传入的文本对视频片段进行搜索
+    elif modal == 'Image':
+        query = DocumentArray([Document(tensor=np.array(Image.open(query)), modality='image')])
+        resp = c.post('/search', inputs=query, parameters={'add_dummy_unknow_prompt': True, 'relative_score': True})  # 其次根据传入的文本对视频片段进行搜索 #TODO write it into indexer, judge by modality pair
+    else:
+        raise NotImplementedError
     # print(topn_value)
-    resp = c.post('/search', inputs=text, parameters={"uid": str(uid), "maxCount": int(topn_value)})  # 其次根据传入的文本对视频片段进行搜索
     # resp = imgs_path
     print(resp)
+    st.write(resp[0].matches.to_dict())
     resp = [i .to_dict()['tags']["uri"] for i in resp[0].matches]  # only one text promt
     return resp
     # data = [{"text": doc.text,"matches": doc.matches.to_dict()} for doc in resp] # 得到每个文本对应的相似视频片段起始位置列表
@@ -87,11 +96,12 @@ if search_button:  # 判断是否点击搜索按钮
     if query is None or modal_select == 'Text' and query.strip() == "":   # 判断是否输入查询文本
         st.warning('Please input the query first!')
     else:
+        st.write(query)
         # if topn_value == None or topn_value == "":  # 如果没有输入 top k 则默认设置为1
         topn_value = 1
         success_placeholder = st.empty()
         with st.spinner("Processing..."):
-            image_urls = search_clip(uid, query, topn_value)
+            image_urls = search_clip(uid, query, modal_select, topn_value)
             child_html = ['<li><img src="{}" ></img></li>\n'.format(base64_encode_img(url)) for url in image_urls]
             child_html = ''.join(child_html)
             html = f"""<ul class="img-wrapper">{child_html}</ul>"""
@@ -113,3 +123,8 @@ if search_button:  # 判断是否点击搜索按钮
         # col1.button("Load more result", on_click=load_more_result)  # , type='primary')
         # col2.button("Target found")  # , type='success')
         # col3.button("Target not found")  # , type='success')
+
+# TODO query by image
+# TODOimage and text mixed as query
+# TODO fix image encoder and text encoder shape mismatch and tesnor/np mismatch
+# TODO flow 拓扑图

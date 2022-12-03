@@ -1,10 +1,11 @@
 from typing import Dict, Optional
 
 import torch
-from docarray import DocumentArray
+from docarray import DocumentArray, Document
 from jina import Executor, requests
 import clip
 import time
+
 
 class CLIPTextEncoder(Executor):
     """Encode text into embeddings using the CLIP model."""
@@ -47,13 +48,12 @@ class CLIPTextEncoder(Executor):
         self.device = device
 
         model, preprocessor = clip.load(self.pretrained_model_name_or_path, device=device)
-        
+
         self.preprocessor = preprocessor
         self.model = model
         # self.tokenizer = CLIPTokenizer.from_pretrained(self.base_tokenizer_model)
         # self.model = CLIPModel.from_pretrained(self.pretrained_model_name_or_path)
         # self.model.eval().to(device)
-
 
     @requests
     def encode(self, docs: DocumentArray, parameters: Dict, **kwargs):
@@ -72,13 +72,14 @@ class CLIPTextEncoder(Executor):
                 lambda x: bool(x.text),
                 docs[parameters.get('traversal_paths', self.traversal_paths)],
             )
-        ).batch(batch_size=parameters.get('batch_size', self.batch_size)) :
+        ).batch(batch_size=parameters.get('batch_size', self.batch_size)):
 
             text_batch = docs_batch.texts
             t1 = time.time()
             with torch.inference_mode():
-                input_tokens = [self.model.encode_text(clip.tokenize([t, "unknown"]).to(self.device)) for t in text_batch] # self._generate_input_tokens(text_batch)
-                embeddings = input_tokens # self.model.get_text_features(**input_tokens).cpu().numpy()
+                # self._generate_input_tokens(text_batch) # TODO use clip score between unknow and image
+                input_tokens = [self.model.encode_text(clip.tokenize([t, "unknown"]).to(self.device)) for t in text_batch]
+                embeddings = input_tokens  # self.model.get_text_features(**input_tokens).cpu().numpy()
                 for doc, embedding in zip(docs_batch, embeddings):
                     doc.embedding = embedding
                     # doc.embedding = np.array(embedding).astype('float32')[0]
@@ -86,4 +87,8 @@ class CLIPTextEncoder(Executor):
             print("encode text cost:", t2 - t1)
             print(t1)
             print(t2)
-
+        if parameters.get("add_dummy_unknow_prompt", False):
+            with torch.inference_mode():
+                # self._generate_input_tokens(text_batch) # TODO use clip score between unknow and image
+                input_tokens = self.model.encode_text(clip.tokenize(["unknown"]).to(self.device))
+                docs.append(Document(embedding=input_tokens, text='unknown'))

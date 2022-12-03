@@ -63,7 +63,9 @@ f = (
     )
     .add(
         uses="customClipImage/config.yml",
-        uses_requests={"/index": "encode"}
+        # uses_requests={"/index": "encode",
+        #                "/search": "encode" #bug
+        #                }
     ).add(
         uses="customClipText/config.yml",
         uses_requests={"/search": "encode"}

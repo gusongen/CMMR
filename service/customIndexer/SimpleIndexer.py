@@ -27,7 +27,7 @@ class SimpleIndexer(Executor):
         pretrained_model_name_or_path: str = 'ViT-B/32',
         match_args: Optional[Dict] = None,
         table_name: str = 'simple_indexer_table2',
-        traversal_right: str = '@r',
+        traversal_right: str = '@r',  # https://docarray.jina.ai/fundamentals/documentarray/access-elements/#index-by-nested-structure
         traversal_left: str = '@r',
         device: str = 'cpu',
         **kwargs,
@@ -117,17 +117,27 @@ class SimpleIndexer(Executor):
         traversal_left = parameters.get('traversal_left', self.default_traversal_left)
         match_args = SimpleIndexer._filter_match_params(docs, match_args)
         # print('in indexer',docs[traversal_left].embeddings.shape, self._index[traversal_right])
-        texts: DocumentArray = docs[traversal_left]
+        queries: DocumentArray = docs[traversal_left]
         stored_docs: DocumentArray = self._index[traversal_right].batch(batch_size=parameters.get('batch_size', 256))
-
+        add_dummy_unknow_prompt = parameters.get("add_dummy_unknow_prompt", False)
+        relative_score = parameters.get("relative_score", True)
+        if add_dummy_unknow_prompt:
+            unknow_prompt_embedding = queries[-1].embedding
+            queries = queries[:-1]
         doc_ids = parameters.get("doc_ids")
         t1 = time.time()
         with torch.inference_mode():
             t1_00 = time.time()
-            for text in texts:  # 将每个text和所有feature计算相似度
+            for query in queries:  # 将每个text和所有feature计算相似度
                 result = []
-                text_features = text.embedding
-                text.embedding = None
+                query_features = query.embedding
+                if not isinstance(query_features, torch.Tensor):
+                    query_features = torch.Tensor(query_features)
+                if query_features.dim() == 1:
+                    query_features = query_features.unsqueeze(0)
+                if add_dummy_unknow_prompt:
+                    query_features = torch.cat([query_features, unknow_prompt_embedding], dim=0)
+                # text.embedding = None
                 for batch_sd in stored_docs:  # 原来每一个sd是一个视频
                     # if doc_ids is not None and sd.uri not in doc_ids:
                     #     continue
@@ -141,13 +151,15 @@ class SimpleIndexer(Executor):
                     #     tensor_images_features = torch.unsqueeze(tensor_images_features, dim=0)
                     tensor_images_features = torch.from_numpy(np.vstack(images_features))
                     t1_1 = time.time()
-                    probs = self.score(tensor_images_features, text_features)
+                    probs = self.score(tensor_images_features, query_features, relative=relative_score)
+                    print("@probs", probs)
                     result.extend([{
-                        "score": probs[0][0],
+                        "score": prob[0],
+                        "unkown_score":prob[1] if len(prob) > 1 else 0,
                         # "index": i, #frame id
                         "uri": sd.uri,
                         "id": sd.id
-                    }for sd in batch_sd])
+                    }for (sd, prob) in zip(batch_sd, probs)])
                     # result.append({
                     #     "score": probs[0][0],
                     #     # "index": i, #frame id
@@ -198,12 +210,13 @@ class SimpleIndexer(Executor):
                     doc.tags["uri"] = res["uri"]
                     doc.tags["id"] = res["id"]
                 # print(docArr)
-                text.matches = docArr
+                query.matches = docArr
                 print('@docArr', docArr)
 
-    def getRankedSearchResult(self, result: list, maxCount: Optional[int] = None, thod: float = 0):
+    def getRankedSearchResult(self, result: list, maxCount: Optional[int] = None, thod: float = 0, filter_unknow: bool = True):
+
         return sorted(
-            filter(lambda x: x["score"] >= thod, result
+            filter(lambda x: x["score"] >= thod and (not filter_unknow or x["unkown_score"] < x["score"]), result
                    ), key=lambda x: -x["score"])[:maxCount]
 
     def getMultiRange(self, result: list, thod=0.1, maxCount: int = 10):
@@ -276,17 +289,36 @@ class SimpleIndexer(Executor):
             return self.getRange(maxItem, result, thod / 2, ignore_range)
         return leftIndex, max(rightIndex, leftIndex + 10), d_result[maxIndex]
 
-    def score(self, image_features, text_features):  # TODO fine tune change here
+    def score(self, image_features, queries_feature, relative=True):  # TODO fine tune change here
+        """_summary_
 
-        logit_scale = self.model.logit_scale.exp()
+        Args:
+            image_features (_type_): _description_
+            text_features (_type_): _description_
+            relative (bool, optional): socre is relative value which softmax by queries,
+            and the sum of each row is 1
+            eg. relative=False get tensor([0.1000, 0.8000, 0.9000]) 
+                relative=True get tensor([0.1909, 0.3844, 0.4248]
+            . Defaults to True. 
+
+        Returns:
+            _type_: _description_
+        """
         # normalized features
         image_features = image_features / image_features.norm(dim=1, keepdim=True)
-        text_features = text_features / text_features.norm(dim=1, keepdim=True)
+        queries_feature = queries_feature / queries_feature.norm(dim=1, keepdim=True)
 
         # cosine similarity as logits
+        similarity_matrix = image_features @ queries_feature.t()
+        print("@ similarity_matrix", similarity_matrix)
+        if relative:
+            logit_scale = self.model.logit_scale.exp()
+            logits_per_image = logit_scale * similarity_matrix
+            probs = logits_per_image.softmax(dim=-1)
+        else:
+            probs = similarity_matrix
 
-        logits_per_image = logit_scale * image_features @ text_features.t()
-        probs = logits_per_image.softmax(dim=-1).cpu().detach().numpy()
+        probs.cpu().detach().numpy()
 
         # print(" img Label probs:", probs)
         return probs
