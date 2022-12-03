@@ -4,3 +4,5 @@ data
 workspace
 **.db
 test*
+.vscode
+**.pyc
