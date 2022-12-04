@@ -121,6 +121,11 @@ class SimpleIndexer(Executor):
         stored_docs: DocumentArray = self._index[traversal_right].batch(batch_size=parameters.get('batch_size', 256))
         add_dummy_unknow_prompt = parameters.get("add_dummy_unknow_prompt", False)
         relative_score = parameters.get("relative_score", True)
+        maxCount = parameters.get('maxCount', None)
+        if maxCount != None:
+            maxCount = int(maxCount)
+        print('@maxCount', maxCount)
+        thod = parameters.get("thod", 0)
         if add_dummy_unknow_prompt:
             unknow_prompt_embedding = queries[-1].embedding
             queries = queries[:-1]
