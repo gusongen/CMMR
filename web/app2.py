@@ -24,10 +24,14 @@ port = 45680
 c = Client(host=f"grpc://localhost:{port}")
 
 # 设置标签栏
-st.set_page_config(page_title="VCED", page_icon="🔍")
+st.set_page_config(page_title="CMMR", page_icon="🔍")
 # 设置标题
-st.title('Welcome to VCED!')
-st.markdown(" <style> .img-wrapper { column-count: 4;  column-gap: 10px; counter-reset: count; width: 100% margin: 0 auto; } .img-wrapper>li { position: relative; margin-bottom: 10px; list-style-type: none; padding:0; margin-left:0; } .img-wrapper>li>img { width: 100%; height: auto; vertical-align: middle; } .img-wrapper>li::after { counter-increment: count; content: counter(count); width: 2em; height: 2em; background-color: rgba(0, 0, 0, 0.9); color: #ffffff; line-height: 2em; text-align: center; position: absolute; font-size: 1em; z-index: 2; left: 0; top: 0; } </style>", unsafe_allow_html=True)
+st.title('Welcome to CMMR!')
+with st.expander("Brief Introduction"):
+    st.markdown("""
+        **C**Lip **M**ulti **M**odal **R**etrievel is a neural network retrieval system based on the [CLIP](https://github.com/openai/CLIP).
+    """)
+st.markdown(" <style> .img-wrapper { column-count: 3;  column-gap: 10px; counter-reset: count; width: 100% margin: 0 auto; } .img-wrapper>li { position: relative; margin-bottom: 10px; list-style-type: none; padding:0; margin-left:0; } .img-wrapper>li>img { width: 100%; height: auto; vertical-align: middle; } .img-wrapper>li::after { counter-increment: count; content: counter(count); width: 2em; height: 2em; background-color: rgba(0, 0, 0, 0.9); color: #ffffff; line-height: 2em; text-align: center; position: absolute; font-size: 1em; z-index: 2; left: 0; top: 0; } </style>", unsafe_allow_html=True)
 
 
 uid = uuid.uuid1()
@@ -99,23 +103,14 @@ if search_button:  # 判断是否点击搜索按钮
         success_placeholder = st.empty()
         with st.spinner("Processing..."):
             image_urls = search_clip(uid, query, modal_select, topn_value)
-            child_html = ['<li><img src="{}" ></img></li>\n'.format(base64_encode_img(url)) for url in image_urls]
-            child_html = ''.join(child_html)
-            html = f"""<ul class="img-wrapper">{child_html}</ul>"""
-            st.markdown(html, unsafe_allow_html=True)
-            # result = json.loads(result) # 解析得到的结果
-            #     matchLen = len(result[i]['matches'])
-            #     for j in range(matchLen):
-            #         print(j)
-            #         left = result[i]['matches'][j]['tags']['leftIndex'] # 视频片段的开始位置
-            #         right = result[i]['matches'][j]['tags']['rightIndex'] # 视频片段的结束位置
-            #         print(left)
-            #         print(right)
-            #         start_t = getTime(left) # 将其转换为标准时间
-            #         output = VIDEO_PATH + "/videos/clip" + str(j) +".mp4"
-            #         cutVideo(start_t,right-left, video_file_path, output) # 对视频进行切分
-            #         st.video(output) #将视频显示到前端界面
-            success_placeholder.success("Done!")
+            if len(image_urls) == 0:
+                st.warning('Nothing similar found!', icon="⚠️")
+            else:
+                child_html = ['<li><img src="{}" ></img></li>\n'.format(base64_encode_img(url)) for url in image_urls]
+                child_html = ''.join(child_html)
+                html = f"""<ul class="img-wrapper">{child_html}</ul>"""
+                st.markdown(html, unsafe_allow_html=True)
+                success_placeholder.success("Done!")
         # col1, col2, col3 = st.columns(3)
         # col1.button("Load more result", on_click=load_more_result)  # , type='primary')
         # col2.button("Target found")  # , type='success')
