@@ -10,13 +10,7 @@ from pathlib import Path
 import base64
 import numpy as np
 from PIL import Image
-# VIDEO_PATH = f"{os.getcwd()}/data"
-# # 视频存储的路径
-# if not os.path.exists(VIDEO_PATH):
-#     os.mkdir(VIDEO_PATH)
-# # 视频剪辑后存储的路径
-# if not os.path.exists(VIDEO_PATH + "/videos/"):
-#     os.mkdir(VIDEO_PATH + "/videos")
+
 
 # GRPC 监听的端口
 port = 45680
@@ -55,6 +49,7 @@ topn_value = st.text_input(
 
 
 # 与后端交互部分
+# @st.cache
 def search_clip(uid, query, modal, topn_value: int):
     if modal == 'Text':
         query = DocumentArray([Document(text=query, modality='text')])
@@ -65,18 +60,17 @@ def search_clip(uid, query, modal, topn_value: int):
                       'thod': 0., "maxCount": topn_value})  # TODO write it into indexer, judge by modality pair
     else:
         raise NotImplementedError
-    # print(topn_value)
-    # resp = imgs_path
-    print(resp)
-    st.write(resp[0].matches.to_dict())
+    # print(resp)
+    # st.write(resp[0].matches.to_dict())
     resp = [i .to_dict()['tags']["uri"] for i in resp[0].matches]  # only one text promt
     return resp
-    # data = [{"text": doc.text,"matches": doc.matches.to_dict()} for doc in resp] # 得到每个文本对应的相似视频片段起始位置列表
-    # return json.dumps(data)
 
 
 @st.cache
 def load_data():
+    """
+    for testing layout
+    """
     imgs_path = sorted(Path("/home/gusongen/mm_search_baseline/data/f8k/images").rglob('*.jpg'))
     imgs_path = [str(i.absolute()) for i in imgs_path]
     return imgs_path
@@ -111,12 +105,8 @@ if search_button:  # 判断是否点击搜索按钮
                 html = f"""<ul class="img-wrapper">{child_html}</ul>"""
                 st.markdown(html, unsafe_allow_html=True)
                 success_placeholder.success("Done!")
-        # col1, col2, col3 = st.columns(3)
-        # col1.button("Load more result", on_click=load_more_result)  # , type='primary')
-        # col2.button("Target found")  # , type='success')
-        # col3.button("Target not found")  # , type='success')
 
-# TODO query by image
-# TODOimage and text mixed as query
+
 # TODO fix image encoder and text encoder shape mismatch and tesnor/np mismatch
-# TODO flow 拓扑图
+# TODO 干净版本的commit
+# TODO middle size dataset

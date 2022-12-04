@@ -82,7 +82,5 @@ if __name__ == '__main__':
     image_doc = Document(uri='toy-data/images/1000268201_693b08cb0e.jpg',
                          modality='image')
     image_doc.load_uri_to_image_tensor()
-    # image_doc.convert_image_buffer_to_blob()
-    # image_doc.blob = np.array(image_doc.blob).astype(np.uint8)
     executor = CLIPImageEncoder()
     executor.encode(DocumentArray(image_doc), parameters={"uid": '111111', "maxCount": 1})
