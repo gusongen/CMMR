@@ -7,3 +7,4 @@ test*
 .vscode
 **.pyc
 __pycache__
+**.svg
