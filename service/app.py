@@ -60,18 +60,24 @@ f = (
     .add(
         uses='imageLoader/config.yml',
         # uses_requests={"/index": "extract"},
+        name='image_loader',
     )
     .add(
+        name='image_encoder',
         uses="customClipImage/config.yml",
         # uses_requests={"/index": "encode",
         #                "/search": "encode" #bug
         #                }
+        # needs='image_loader'
     ).add(
+        name='text_encoder',
         uses="customClipText/config.yml",
-        uses_requests={"/search": "encode"}
+        uses_requests={"/search": "encode"},
     ).add(
+        name='indexer',
         uses="customIndexer/config.yml",
-        uses_metas={"workspace": os.environ['JINA_WORKSPACE']}
+        uses_metas={"workspace": os.environ['JINA_WORKSPACE']},
+        # needs=['image_encoder', 'text_encoder']
     )
 )
 with f:
