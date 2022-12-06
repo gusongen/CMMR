@@ -8,3 +8,13 @@ test*
 **.pyc
 __pycache__
 **.svg
+venv
+**.log
+**.bak
+**.png
+frontend
+backend
+image_meta_search_system
+web/system_display.py
+web/4_questionnaire.py
+flow.yml

@@ -1,0 +1,1 @@
+rm /home/gusongen/mm_search_baseline/service/workspace/indexer/0/index.db

@@ -17,7 +17,8 @@ class CLIPImageEncoder(Executor):
     def __init__(
         self,
         pretrained_model_name_or_path: str = 'ViT-B/32',
-        device: str = 'cpu',
+        # device: str = 'cpu',
+        device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
         batch_size: int = 32,
         traversal_paths: str = '@r',
         *args,

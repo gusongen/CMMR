@@ -29,7 +29,8 @@ class SimpleIndexer(Executor):
         table_name: str = 'simple_indexer_table2',
         traversal_right: str = '@r',  # https://docarray.jina.ai/fundamentals/documentarray/access-elements/#index-by-nested-structure
         traversal_left: str = '@r',
-        device: str = 'cpu',
+        # device: str = 'cpu',
+        device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
         **kwargs,
     ):
         """
@@ -54,6 +55,7 @@ class SimpleIndexer(Executor):
                 # 'connection': ,# TODO fix one specific db
                 'table_name': table_name,
                 # 'synchronous': 'NORMAL'
+                # 'journal_mode': 'WAL'
             },
         )  # with customize config
         print('@@@@ _index len', len(self._index))
@@ -90,6 +92,7 @@ class SimpleIndexer(Executor):
         print(t2 - t1)
         print(t1)
         print(t2)
+        print('@@@@ _index len', len(self._index))
 
     @requests(on='/search')
     def search(
@@ -138,10 +141,12 @@ class SimpleIndexer(Executor):
                 query_features = query.embedding
                 if not isinstance(query_features, torch.Tensor):
                     query_features = torch.Tensor(query_features)
+
                 if query_features.dim() == 1:
                     query_features = query_features.unsqueeze(0)
                 if add_dummy_unknow_prompt:
                     query_features = torch.cat([query_features, unknow_prompt_embedding], dim=0)
+                query_features = query_features.float().to(self.device)
                 for batch_sd in stored_docs:
                     # if doc_ids is not None and sd.uri not in doc_ids:
                     #     continue
@@ -153,10 +158,10 @@ class SimpleIndexer(Executor):
                     # tensor_images_features = Tensor(images_features)
                     # if tensor_images_features.dim() == 1:
                     #     tensor_images_features = torch.unsqueeze(tensor_images_features, dim=0)
-                    tensor_images_features = torch.from_numpy(np.vstack(images_features))
+                    tensor_images_features = torch.from_numpy(np.vstack(images_features)).to(self.device)
                     t1_1 = time.time()
                     probs = self.score(tensor_images_features, query_features, relative=relative_score)
-                    print("@probs", probs)
+                    # print("@probs", probs)
                     result.extend([{
                         "score": prob[0],
                         "unkown_score":prob[1] if len(prob) > 1 else 0,
@@ -182,12 +187,23 @@ class SimpleIndexer(Executor):
                     doc.tags["uri"] = res["uri"]
                     doc.tags["id"] = res["id"]
                 query.matches = docArr
+        print('@@@@ _index len', len(self._index))
 
     def getRankedSearchResult(self, result: list, maxCount: Optional[int] = None, thod: float = 0, filter_unknow: bool = True):
 
         return sorted(
             filter(lambda x: x["score"] >= thod and (not filter_unknow or x["unkown_score"] < x["score"]), result
                    ), key=lambda x: -x["score"])[:maxCount]
+        # tic = time.time()
+        # tmp = np.array(list(filter(lambda x: x["score"] >= thod and (not filter_unknow or x["unkown_score"] < x["score"]), result
+        #                            )))
+        # print('@rank.filter cost', time.time() - tic)
+        # tic = time.time()
+        # if maxCount is not None:
+        #     idx = np.argpartition([-i["score"] for i in tmp], maxCount)[:maxCount]
+        #     tmp = tmp[idx]
+        # print('@rank.sort cost', time.time() - tic)
+        # return tmp
 
     def score(self, image_features, queries_feature, relative=True):  # TODO fine tune change here
         """_summary_
@@ -210,16 +226,16 @@ class SimpleIndexer(Executor):
 
         # cosine similarity as logits
         similarity_matrix = image_features @ queries_feature.t()
-        print("@ similarity_matrix", similarity_matrix)
+        # print("@ similarity_matrix", similarity_matrix)
         if relative:
             logit_scale = self.model.logit_scale.exp()
-            print('@logit_scale', logit_scale)
+            # print('@logit_scale', logit_scale)
             logits_per_image = logit_scale * similarity_matrix
             probs = logits_per_image.softmax(dim=-1)
         else:
             probs = similarity_matrix
 
-        probs.cpu().detach().numpy()
+        probs = probs.cpu().detach().numpy()
 
         # print(" img Label probs:", probs)
         return probs
@@ -242,6 +258,7 @@ class SimpleIndexer(Executor):
         if len(deleted_ids) == 0:
             return
         del self._index[deleted_ids]
+        print('@@@@ _index len', len(self._index))
 
     @requests(on='/update')
     def update(self, docs: DocumentArray, **kwargs):
@@ -257,6 +274,7 @@ class SimpleIndexer(Executor):
                 self.logger.warning(
                     f'cannot update doc {doc.id} as it does not exist in storage'
                 )
+        print('@@@@ _index len', len(self._index))
 
     @requests(on='/fill_embedding')
     def fill_embedding(self, docs: DocumentArray, **kwargs):
@@ -266,13 +284,26 @@ class SimpleIndexer(Executor):
         """
         for doc in docs:
             doc.embedding = self._index[doc.id].embedding
+        print('@@@@ _index len', len(self._index))
 
     @requests(on='/clear')
     def clear(self, **kwargs):
         """clear the database"""
         self._index.clear()
+        print('@@@@ _index len', len(self._index))
 
     @requests(on='/get_db')
     def get_db(self, **kwargs):
         """check the database"""
+        print('@@@@ _index len', len(self._index))
         return self._index
+
+    @requests(on='/echo')
+    def get_db(self, **kwargs):
+        """check the database"""
+        print('@@@@ _index len', len(self._index))
+
+    @requests(on='/get_db_len')
+    def get_db(self, **kwargs):
+        """check the database"""
+        return {'len': len(self._index)}

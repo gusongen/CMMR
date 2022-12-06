@@ -128,7 +128,7 @@ def get_db_size(indexer=None):
 @click.option('--request_size', '-s', default=64)
 @click.option('--data_set', '-d', type=click.Choice(['f30k', 'f8k', 'toy-data'], case_sensitive=False), default='toy-data')
 @click.option("--device", default='cuda:1' if torch.cuda.is_available() else 'cpu')
-@click.option("--by_flow", default=True, type=bool)
+@click.option("--by_flow", default=False, type=bool)
 def index(indexer, num_docs, request_size, data_set, device, by_flow):
     """
     num_docs : import all image if num_docs is None
@@ -169,10 +169,10 @@ if __name__ == '__main__':
     os.environ['JINA_DEFAULT_WORKSPACE_BASE'] = './workspace'  # the directory to store the indexed data
     config()  # set environment first ,or jina can't load sqlite appropriate
     # clear()
-    # index()
+    index()
     # get_db_size()
     # test_query()
-    test_img_query()
+    # test_img_query()
     # test_query()
     # test_query()
 

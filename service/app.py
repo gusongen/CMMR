@@ -10,6 +10,7 @@ def config():
     os.environ['JINA_WORKSPACE'] = './workspace'  # the directory to store the indexed data
     os.environ['TOP_K'] = '20'  # the maximal number of results to return
 
+
 config()
 
 f = (
@@ -37,5 +38,7 @@ f = (
         # needs=['image_encoder', 'text_encoder']
     )
 )
+# todo   replicas=3
+f.save_config('flow.yml')
 with f:
     f.block()  # run forever
